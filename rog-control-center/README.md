@@ -34,20 +34,22 @@ Wayland or X11 backend at runtime.
 
 ## Navigation
 
-- **Overview:** model, CPU temperature, battery, fan speeds, memory usage and
-  the active performance profile.
-- **Performance:** profiles, custom fan curves, CPU energy preferences and
-  power tuning. Drag graph points, or expand the exact-value editor. A curve is
+- **Overview:** model, CPU temperature, battery charge/power/limit, fan speeds,
+  GPU mode and the active performance profile. Each status card opens its related
+  settings section. Charge-limit editing and one-time full charging are available
+  directly on this page; Quick access links are retained.
+- **Performance:** profiles, custom fan curves, CPU energy preferences, graphics
+  mode and power tuning. Drag graph points, or expand the exact-value editor. A curve is
   saved explicitly; both temperature and fan speed must be non-decreasing.
   The power-tuning control explains when an enabled custom curve is required.
+  Current graphics mode and queued changes are shown separately. Scheduling a
+  change requires confirmation; the app never restarts the laptop.
 - **Power & Battery:** charge limit, one-time full charge, battery health and
   automatic profiles for AC and battery power.
 - **Lighting:** Aura brightness, supported effects, primary/secondary colours,
   speed, direction, zones and power triggers. AniMe Matrix, Slash and XG Mobile
   settings appear when their interfaces are present.
-- **Hardware:** display/firmware settings and graphics mode. Current graphics
-  mode and queued changes are shown separately. Scheduling a change requires
-  confirmation; the app never restarts the laptop.
+- **Hardware:** display/firmware settings and laptop information.
 
 Controls come from daemon discovery and introspection. Unsupported settings
 are hidden; read-only firmware values remain read-only. Settings that require

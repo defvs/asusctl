@@ -53,7 +53,8 @@ def page(title, subtitle):
     )
     heading = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
     heading.append(label(title, "title-1", xalign=0, wrap=True))
-    heading.append(label(subtitle, "dim-label", xalign=0, wrap=True))
+    if subtitle:
+        heading.append(label(subtitle, "dim-label", xalign=0, wrap=True))
     content.append(heading)
     clamp = Adw.Clamp(maximum_size=780, tightening_threshold=580, child=content)
     scroll = Gtk.ScrolledWindow(
@@ -68,15 +69,11 @@ def empty(parent, title, description, icon="dialog-information-symbolic"):
     return status
 
 
-def metric(title, icon):
-    card = Gtk.Box(
-        orientation=Gtk.Orientation.VERTICAL,
-        spacing=12,
-        margin_top=0,
-        margin_bottom=0,
-        hexpand=True,
-    )
+def metric(title, icon, callback):
+    card = Gtk.Button(hexpand=True)
     card.add_css_class("card")
+    card.connect("clicked", lambda _: callback())
+    card.update_property([Gtk.AccessibleProperty.LABEL], [title])
     body = Gtk.Box(
         orientation=Gtk.Orientation.VERTICAL,
         spacing=8,
@@ -93,5 +90,5 @@ def metric(title, icon):
     body.append(value)
     detail = label("Reading sensors…", "caption", xalign=0, wrap=True)
     body.append(detail)
-    card.append(body)
+    card.set_child(body)
     return card, value, detail

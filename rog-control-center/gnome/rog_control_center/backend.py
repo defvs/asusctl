@@ -107,6 +107,29 @@ def number(path):
         return None
 
 
+def fan_name(name):
+    """Turn hwmon labels into readable names while preserving unknown sensors."""
+    name = name.strip().lower().replace("_", " ")
+    return {
+        "cpu fan": "CPU",
+        "cpu": "CPU",
+        "gpu fan": "GPU",
+        "gpu": "GPU",
+        "mid fan": "Middle",
+        "mid": "Middle",
+    }.get(name, name.title())
+
+
+def battery_power(battery):
+    watts = battery.get("watts")
+    if watts is None:
+        return "Power unavailable"
+    direction = {"charging": " in", "discharging": " out"}.get(
+        battery.get("status", "").lower(), ""
+    )
+    return f"{abs(watts):.1f} W{direction}"
+
+
 def telemetry():
     """Read only local, inexpensive sysfs/proc metrics; never wake a discrete GPU."""
     data = {
@@ -330,6 +353,8 @@ class Backend:
                 self.demo_snapshot.find(device.key).props["CurrentValue"] = device.props[
                     "DefaultValue"
                 ]
+            elif name == "OneShotFullCharge":
+                self.demo_snapshot.first(PLATFORM).props["ChargeControlEndThreshold"] = 100
             return
         self.call(device.path, device.interface, name, signature, args)
 

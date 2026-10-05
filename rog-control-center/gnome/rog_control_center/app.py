@@ -24,6 +24,8 @@ from .backend import (
     SLASH,
     SLASH_MODES,
     Backend,
+    battery_power,
+    fan_name,
     gpu_mode,
 )
 from .fans import FanEditor
@@ -91,6 +93,7 @@ class Window(Adw.ApplicationWindow):
         self.pending = 0
         self.bindings = []
         self.topology = None
+        self.navigation_serial = 0
         self.editor = None
         self.closing = False
         self.set_size_request(360, 440)
@@ -103,9 +106,7 @@ class Window(Adw.ApplicationWindow):
         self.set_content(self.toast)
         sidebar = Adw.ToolbarView()
         header = Adw.HeaderBar()
-        header.set_title_widget(
-            Adw.WindowTitle(title="ROG Control Center", subtitle="Laptop settings")
-        )
+        header.set_title_widget(Adw.WindowTitle(title="ROG Control Center"))
         sidebar.add_top_bar(header)
         self.sidebar_list = Gtk.ListBox(selection_mode=Gtk.SelectionMode.SINGLE)
         self.sidebar_list.add_css_class("navigation-sidebar")
@@ -120,7 +121,6 @@ class Window(Adw.ApplicationWindow):
             margin_end=18,
             margin_bottom=18,
         )
-        footer.append(label("ASUS LINUX", "caption", xalign=0))
         self.connection_label = label("Connecting…", "dim-label", xalign=0, wrap=True)
         footer.append(self.connection_label)
         sidebar_box.append(footer)
@@ -300,25 +300,62 @@ class Window(Adw.ApplicationWindow):
         if not row:
             return
         name = row.page_name
+        self.navigation_serial += 1
         self.stack.set_visible_child_name(name)
         title = self.page_names[name]
         self.title_widget.set_title(title)
         self.content_page.set_title(title)
         self.split.set_show_content(True)
 
-    def go(self, name):
+    def go(self, name, section=None):
         child = self.sidebar_list.get_first_child()
         while child:
             if child.page_name == name:
                 self.sidebar_list.select_row(child)
                 self.split.set_show_content(True)
+                if section:
+                    self.scroll_to_section(name, section)
                 return
             child = child.get_next_sibling()
+
+    def scroll_to_section(self, name, section):
+        target = self.sections.get((name, section))
+        if target is None:
+            return
+        self.navigation_serial += 1
+        serial = self.navigation_serial
+        scroll = self.stack.get_child_by_name(name)
+        body = self.page_bodies[name]
+        allocated = False
+
+        def position(_widget, _clock):
+            nonlocal allocated
+            if self.closing or serial != self.navigation_serial:
+                return GLib.SOURCE_REMOVE
+            if not target.get_mapped() or not target.get_height():
+                return GLib.SOURCE_CONTINUE
+            if not allocated:
+                allocated = True
+                return GLib.SOURCE_CONTINUE
+            valid, bounds = target.compute_bounds(body)
+            if valid:
+                adjustment = scroll.get_vadjustment()
+                offset = bounds.get_y() + body.get_margin_top() - 12
+                maximum = adjustment.get_upper() - adjustment.get_page_size()
+                adjustment.set_value(max(0, min(offset, maximum)))
+            return GLib.SOURCE_REMOVE
+
+        # Wait for the destination's allocation, including after a narrow-view
+        # navigation transition, before calculating its scroll position.
+        scroll.add_tick_callback(position)
 
     def build_pages(self):
         previous = self.stack.get_visible_child_name()
         self.bindings = []
         self.editor = None
+        self.sections = {}
+        self.page_bodies = {}
+        self.overview_cards = {}
         while self.stack.get_first_child():
             self.stack.remove(self.stack.get_first_child())
         self.sidebar_list.remove_all()
@@ -352,7 +389,7 @@ class Window(Adw.ApplicationWindow):
             scroll, body = page(
                 title,
                 {
-                    "overview": "Your laptop at a glance.",
+                    "overview": "",
                     "performance": "Balance speed, temperature and fan noise.",
                     "power": "Make each charge last longer.",
                     "lighting": "Make your laptop feel like yours.",
@@ -360,6 +397,7 @@ class Window(Adw.ApplicationWindow):
                 }[name],
             )
             builder(body)
+            self.page_bodies[name] = body
             self.stack.add_named(scroll, name)
         self.go(previous if previous in self.page_names else "overview")
 
@@ -501,7 +539,6 @@ class Window(Adw.ApplicationWindow):
             "PlatformProfile",
             "Active profile",
             {p: PROFILES.get(p, str(p)) for p in platform.props.get("PlatformProfileChoices", [])},
-            "Quiet saves power. Balanced suits everyday use. Performance prioritises speed.",
         )
 
     def overview(self, parent):
@@ -528,15 +565,28 @@ class Window(Adw.ApplicationWindow):
         )
         flow.set_activate_on_single_click(False)
         stats = {}
-        for key, title, icon in [
-            ("cpu_temp", "CPU temperature", "temperature-symbolic"),
-            ("battery", "Battery", "battery-symbolic"),
-            ("fans", "Cooling", "fan-symbolic"),
-            ("memory", "Memory", "media-flash-symbolic"),
+        for key, title, icon, destination, section in [
+            ("cpu_temp", "CPU temperature", "temperature-symbolic", "performance", "cpu"),
+            ("battery", "Battery", "battery-symbolic", "power", "charging"),
+            ("fans", "Cooling", "fan-symbolic", "performance", "fans"),
+            ("gpu", "GPU mode", "video-display-symbolic", "performance", "graphics"),
         ]:
-            card, value, detail = metric(title, icon)
+            card, value, detail = metric(
+                title, icon, lambda n=destination, s=section: self.go(n, s)
+            )
+            card.set_tooltip_text(
+                "Open "
+                + {
+                    "cpu": "CPU settings",
+                    "charging": "battery settings",
+                    "fans": "fan curves",
+                    "graphics": "graphics settings",
+                }[section]
+            )
             flow.insert(card, -1)
+            self.overview_cards[key] = card
             stats[key] = value, detail
+        self.overview_stats = stats
         parent.append(flow)
 
         def update(snapshot):
@@ -548,21 +598,44 @@ class Window(Adw.ApplicationWindow):
             battery = t.get("battery", {})
             capacity = battery.get("capacity")
             stats["battery"][0].set_label(f"{capacity:.0f}%" if capacity is not None else "—")
-            stats["battery"][1].set_label(battery.get("status", "No battery detected"))
+            platform = snapshot.first(PLATFORM)
+            limit = platform.props.get("ChargeControlEndThreshold") if platform else None
+            battery_details = (
+                f"{battery.get('status', 'Unknown')} · {battery_power(battery)}"
+                if battery
+                else "No battery detected"
+            )
+            if limit is not None:
+                battery_details += f"\nCharge limit: {limit}%"
+            stats["battery"][1].set_label(battery_details)
             fans = t.get("fans", [])
             stats["fans"][0].set_label(f"{fans[0][1]:,} rpm" if fans else "—")
             stats["fans"][1].set_label(
-                " · ".join(f"{name}: {rpm:,} rpm" for name, rpm in fans[1:])
-                or ("CPU fan speed" if fans else "Fan sensors unavailable")
+                " · ".join(
+                    [f"{fan_name(fans[0][0])} fan"]
+                    + [f"{fan_name(name)}: {rpm:,} rpm" for name, rpm in fans[1:]]
+                )
+                if fans
+                else "Fan sensors unavailable"
             )
-            memory = t.get("memory")
-            stats["memory"][0].set_label(f"{memory:.0f}%" if memory is not None else "—")
-            stats["memory"][1].set_label(
-                "RAM in use" if memory is not None else "Sensor unavailable"
+            switchable = snapshot.attribute("DgpuDisable") or snapshot.attribute("GpuMuxMode")
+            stats["gpu"][0].set_label(gpu_mode(snapshot) if switchable else "Unavailable")
+            queued = any(
+                d.props.get("QueuedGpuValue", -1) >= 0
+                for d in snapshot.devices
+                if d.props.get("Name") in ("DgpuDisable", "GpuMuxMode")
+            )
+            stats["gpu"][1].set_label(
+                f"{gpu_mode(snapshot, True)} after restart"
+                if queued
+                else "Current graphics mode"
+                if switchable
+                else "No graphics mode control"
             )
 
         self.bindings.append(update)
         self.profile_control(parent)
+        self.charging_controls(parent, compact=True)
         shortcuts = group(parent, "Quick access")
         for title, subtitle, icon, name in [
             (
@@ -601,8 +674,9 @@ class Window(Adw.ApplicationWindow):
         self.profile_control(parent)
         if self.snapshot.curves and any(self.snapshot.curves.values()):
             self.editor = FanEditor(self, parent)
+            self.sections["performance", "fans"] = self.editor.container
         else:
-            empty(
+            self.sections["performance", "fans"] = empty(
                 parent,
                 "Automatic cooling",
                 "Custom fan curves are unavailable on this device."
@@ -617,6 +691,7 @@ class Window(Adw.ApplicationWindow):
                 "CPU energy preference",
                 "Fine-tune how each performance profile balances speed and power use.",
             )
+            self.sections["performance", "cpu"] = energy
             self.switch(
                 energy, platform, "PlatformProfileLinkedEpp", "Link CPU preference to profile"
             )
@@ -626,6 +701,7 @@ class Window(Adw.ApplicationWindow):
                 ("ProfilePerformanceEpp", "Performance"),
             ]:
                 self.combo(energy, platform, name, title, EPP)
+        self.graphics_controls(parent)
         ppt = [
             d
             for d in self.snapshot.devices
@@ -661,6 +737,45 @@ class Window(Adw.ApplicationWindow):
                         )
                     )
 
+    def charging_controls(self, parent, compact=False):
+        platform = self.snapshot.first(PLATFORM)
+        if not platform or "ChargeControlEndThreshold" not in platform.writable:
+            return None
+        charging = group(
+            parent,
+            "Charging",
+            ""
+            if compact
+            else "A limit of 80% reduces battery wear when your laptop is usually plugged in.",
+        )
+        self.numeric(
+            charging,
+            platform,
+            "ChargeControlEndThreshold",
+            "Charge limit",
+            20,
+            100,
+            subtitle="20–100%" if compact else "20–100%. Apply with the check button.",
+        )
+        row = Adw.ActionRow(
+            use_markup=False,
+            title="Charge to 100% once",
+            subtitle="Charge to 100% once, then restore your usual limit.",
+        )
+        row.set_subtitle_lines(2)
+        full = button(
+            "Charge once",
+            callback=lambda: self.perform(
+                lambda: self.backend.method(platform, "OneShotFullCharge"),
+                row,
+                "One-time full charge enabled",
+            ),
+        )
+        full.set_valign(Gtk.Align.CENTER)
+        row.add_suffix(full)
+        charging.add(row)
+        return charging
+
     def power(self, parent):
         battery = self.snapshot.telemetry.get("battery")
         if battery:
@@ -695,38 +810,7 @@ class Window(Adw.ApplicationWindow):
 
             self.bindings.append(update)
         platform = self.snapshot.first(PLATFORM)
-        if platform and "ChargeControlEndThreshold" in platform.writable:
-            charging = group(
-                parent,
-                "Charging",
-                "A limit of 80% reduces battery wear when your laptop is usually plugged in.",
-            )
-            self.numeric(
-                charging,
-                platform,
-                "ChargeControlEndThreshold",
-                "Charge limit",
-                20,
-                100,
-                subtitle="20–100%. Apply with the check button.",
-            )
-            row = Adw.ActionRow(
-                use_markup=False,
-                title="Full charge for a trip",
-                subtitle="Charge to 100% once, then restore your usual limit.",
-            )
-            row.set_subtitle_lines(2)
-            full = button(
-                "Charge once",
-                callback=lambda: self.perform(
-                    lambda: self.backend.method(platform, "OneShotFullCharge"),
-                    row,
-                    "One-time full charge enabled",
-                ),
-            )
-            full.set_valign(Gtk.Align.CENTER)
-            row.add_suffix(full)
-            charging.add(row)
+        self.sections["power", "charging"] = self.charging_controls(parent) or parent
         if platform:
             auto = group(
                 parent,
@@ -808,15 +892,17 @@ class Window(Adw.ApplicationWindow):
         self.bind_property(device, "CurrentValue", lambda v: text.set_label(str(v)))
         return None
 
-    def hardware(self, parent):
-        info = group(parent, "This laptop")
-        t = self.snapshot.telemetry
-        info_row(info, "Model", t.get("model", "Unknown"), "computer-symbolic")
-        info_row(info, "Board", t.get("board", "Unknown"))
-        info_row(info, "Processor", t.get("cpu", "Unavailable"))
+    def graphics_controls(self, parent):
         dgpu, mux = self.snapshot.attribute("DgpuDisable"), self.snapshot.attribute("GpuMuxMode")
+        graphics = group(
+            parent,
+            "Graphics",
+            "Changes are scheduled for the next restart."
+            if dgpu or mux
+            else "Graphics mode switching is unavailable on this device.",
+        )
+        self.sections["performance", "graphics"] = graphics
         if dgpu or mux:
-            graphics = group(parent, "Graphics", "Changes are scheduled for the next restart.")
             _, current = info_row(graphics, "Current mode")
             _, pending = info_row(graphics, "Scheduled mode")
             self.bindings.append(lambda s: current.set_label(gpu_mode(s)))
@@ -861,6 +947,13 @@ class Window(Adw.ApplicationWindow):
                 )
 
             apply.connect("clicked", schedule)
+
+    def hardware(self, parent):
+        info = group(parent, "This laptop")
+        t = self.snapshot.telemetry
+        info_row(info, "Model", t.get("model", "Unknown"), "computer-symbolic")
+        info_row(info, "Board", t.get("board", "Unknown"))
+        info_row(info, "Processor", t.get("cpu", "Unavailable"))
         rest = [
             d
             for d in self.snapshot.devices

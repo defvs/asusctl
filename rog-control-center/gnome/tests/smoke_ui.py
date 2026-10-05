@@ -15,7 +15,7 @@ gi.require_version("Adw", "1")
 gi.require_version("Gsk", "4.0")
 from gi.repository import Adw, GLib, Gsk, Gtk
 from rog_control_center.app import Application
-from rog_control_center.backend import FANS
+from rog_control_center.backend import FANS, PLATFORM
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--live", action="store_true")
@@ -81,6 +81,7 @@ def next_step():
     w = app.window
     w.go(name)
     w.set_default_size(width, height)
+    w.stack.get_child_by_name(name).get_vadjustment().set_value(0)
     Adw.StyleManager.get_default().set_color_scheme(
         Adw.ColorScheme.FORCE_DARK if colour == "dark" else Adw.ColorScheme.FORCE_LIGHT
     )
@@ -187,12 +188,99 @@ def ready():
             w.backend.method(fan, "SetCurvesToDefaults", "(u)", (0,))
             w.refreshed(w.backend.discover(), None)
             w.last_toast.dismiss()
-            next_step()
+            check_overview()
 
         wait_for(lambda: w.pending == 0, callback(saved))
     else:
         print("Live interfaces:", [d.interface for d in w.snapshot.devices], flush=True)
+        check_overview()
+
+
+def descendants(widget):
+    yield widget
+    child = widget.get_first_child()
+    while child:
+        yield from descendants(child)
+        child = child.get_next_sibling()
+
+
+@callback
+def check_overview():
+    w = app.window
+    assert set(w.overview_cards) == {"cpu_temp", "battery", "fans", "gpu"}
+    assert "gpu_fan" not in w.overview_stats["fans"][1].get_label()
+    assert "Charge limit:" in w.overview_stats["battery"][1].get_label()
+    if options.live:
+        check_navigation()
+        return
+    assert "9.2 W out" in w.overview_stats["battery"][1].get_label()
+    overview = w.stack.get_child_by_name("overview")
+    spin = next(widget for widget in descendants(overview) if isinstance(widget, Gtk.SpinButton))
+    spin.set_value(60)
+    spin.get_next_sibling().emit("clicked")
+
+    @callback
+    def limit_saved():
+        assert w.snapshot.first(PLATFORM).props["ChargeControlEndThreshold"] == 60
+        assert "Charge limit: 60%" in w.overview_stats["battery"][1].get_label()
+        one_shot = next(
+            widget
+            for widget in descendants(overview)
+            if isinstance(widget, Gtk.Button) and widget.get_label() == "Charge once"
+        )
+        one_shot.emit("clicked")
+        wait_for(lambda: w.pending == 0, full_charge_saved)
+
+    @callback
+    def full_charge_saved():
+        assert w.snapshot.first(PLATFORM).props["ChargeControlEndThreshold"] == 100
+        assert "Charge limit: 100%" in w.overview_stats["battery"][1].get_label()
+        w.backend.set_property(w.snapshot.first(PLATFORM), "ChargeControlEndThreshold", 80)
+        w.refreshed(w.backend.discover(), None)
+        w.last_toast.dismiss()
+        check_navigation()
+
+    wait_for(lambda: w.pending == 0, limit_saved)
+
+
+navigation = [
+    (width, *destination)
+    for width in (1060, 390)
+    for destination in [
+        ("cpu_temp", "performance", "cpu"),
+        ("gpu", "performance", "graphics"),
+        ("battery", "power", "charging"),
+        ("fans", "performance", "fans"),
+    ]
+]
+
+
+@callback
+def check_navigation():
+    w = app.window
+    if not navigation:
         next_step()
+        return
+    width, key, destination, section = navigation.pop(0)
+    w.set_default_size(width, 844)
+    w.go("overview")
+    w.overview_cards[key].emit("clicked")
+    assert w.stack.get_visible_child_name() == destination
+    target = w.sections[destination, section]
+    scroll = w.stack.get_child_by_name(destination)
+
+    def target_visible():
+        if not target.get_mapped():
+            return False
+        valid, bounds = target.compute_bounds(scroll.get_child())
+        return valid and -12 <= bounds.get_y() < scroll.get_height() - 40
+
+    @callback
+    def positioned():
+        print(f"{key} card opens {destination}/{section} in view at {w.get_width()}px", flush=True)
+        check_navigation()
+
+    wait_for(target_visible, positioned)
 
 
 for name in ["overview", "performance", "power", "lighting", "hardware"]:

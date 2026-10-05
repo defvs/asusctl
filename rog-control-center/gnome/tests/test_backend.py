@@ -10,6 +10,8 @@ from rog_control_center.backend import (
     PLATFORM,
     Backend,
     Device,
+    battery_power,
+    fan_name,
     gpu_changes,
     gpu_mode,
     validate_curve,
@@ -89,6 +91,21 @@ class CurveTests(unittest.TestCase):
         ]:
             with self.subTest(temp=temp, pwm=pwm), self.assertRaises(ValueError):
                 validate_curve(temp, pwm)
+
+
+class OverviewDisplayTests(unittest.TestCase):
+    def test_hwmon_fan_labels_are_readable(self):
+        self.assertEqual(fan_name("gpu_fan"), "GPU")
+        self.assertEqual(fan_name("cpu_fan"), "CPU")
+        self.assertEqual(fan_name("mid_fan"), "Middle")
+        self.assertEqual(fan_name("case_fan"), "Case Fan")
+
+    def test_battery_power_direction_comes_from_charge_state(self):
+        self.assertEqual(battery_power({"status": "Charging", "watts": 33.265}), "33.3 W in")
+        self.assertEqual(battery_power({"status": "Discharging", "watts": -9.2}), "9.2 W out")
+        self.assertEqual(battery_power({"status": "Full", "watts": 0}), "0.0 W")
+        self.assertEqual(battery_power({"status": "Unknown", "watts": 8}), "8.0 W")
+        self.assertEqual(battery_power({"status": "Charging"}), "Power unavailable")
 
 
 class DemoTests(unittest.TestCase):
