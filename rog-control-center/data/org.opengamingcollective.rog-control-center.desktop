@@ -2,9 +2,10 @@
 Version=1.0
 Type=Application
 Name=ROG Control Center
-Comment=Make your ASUS ROG Laptop go Brrrrr!
-Categories=Settings
+Comment=Manage performance, battery, lighting and hardware on your ASUS laptop
+Categories=Settings;HardwareSettings;
 
 Icon=rog-control-center
 Exec=rog-control-center
 Terminal=false
+StartupWMClass=org.opengamingcollective.ROGControlCenter

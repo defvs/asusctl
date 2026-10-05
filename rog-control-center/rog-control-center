@@ -1,0 +1,15 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: MPL-2.0
+"""Run from a checkout or from an installed share/asusctl/gnome directory."""
+
+import sys
+from pathlib import Path
+
+local = Path(__file__).resolve().parent / "gnome"
+installed = Path(__file__).resolve().parent.parent / "share" / "asusctl" / "gnome"
+sys.path.insert(0, str(local if local.is_dir() else installed))
+try:
+    from rog_control_center.app import main
+except (ImportError, ValueError) as error:
+    sys.exit(f"ROG Control Center requires GTK4, libadwaita 1.5+ and PyGObject.\n{error}")
+raise SystemExit(main())

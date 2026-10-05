@@ -1,4 +1,6 @@
 /target
+__pycache__/
+*.pyc
 vendor.tar.xz
 cargo-config
 .idea

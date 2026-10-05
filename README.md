@@ -1,4 +1,16 @@
-# asusctl for ASUS ROG
+# asusctl for ASUS ROG — GNOME UI fork
+
+This fork replaces the default ROG Control Center interface with native GTK4
+and libadwaita. The daemon and command-line tools remain upstream-compatible.
+See [the GNOME UI guide](rog-control-center/README.md) for dependencies,
+screenshots, installation and validation.
+
+```sh
+./rog-control-center/rog-control-center          # Connect to installed asusd
+./rog-control-center/rog-control-center --demo   # Isolated UI preview
+```
+
+![Native GNOME overview](rog-control-center/gnome/screenshots/overview-light.png)
 
 <p align="center">
   <a href="https://www.patreon.com/bePatron?u=7602281"><img src="extra/icons/patreon-button.svg" width="190" height="32" alt="Become a Patron" /></a>
@@ -50,12 +62,10 @@ Due to ongoing development, the minimum suggested kernel version is always **the
 
 Support for Thermal Design Power (TDP) is tied to the new `asus-armoury` driver: available mainline since Linux 6.19: everything older is not supported.
 
-### Display server support (X11)
+### Display server support
 
-> [!NOTE]
-> X11 is officially unsupported. Technical assistance is not provided for X11 environments due to developer resource constraints and the unmaintained status of X11 itself.
->
-> Users who require X11 integration may compile the GUI application with X11 support enabled using `cargo build --features "rog-control-center/x11"`. Operation on unmaintained display servers remains the responsibility of the user.
+The native GNOME frontend uses GTK's Wayland and X11 backends at runtime.
+The optional legacy Slint frontend still uses the upstream build features.
 
 ## Implemented features
 
@@ -78,7 +88,7 @@ Feature availability depends on upstream Linux kernel support and specific hardw
 ### System integration
 
 - [x] **System daemon (`asusd`):** Background service handling hardware communications
-- [x] **Graphical interface (`rog-control-center`):** Desktop application with system tray integration and notifications
+- [x] **Graphical interface (`rog-control-center`):** Native GNOME settings application with adaptive navigation
 - [x] **POST audio controls:** Toggle the BIOS boot sound setting
 
 ### Additional hardware configuration notes

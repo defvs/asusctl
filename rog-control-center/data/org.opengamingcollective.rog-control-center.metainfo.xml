@@ -2,18 +2,18 @@
 <component type="desktop-application">
   <id>org.opengamingcollective.rog-control-center</id>
   
-  <name>Rog Control Center</name>
-  <summary>A one-stop-shop GUI tool for asusd/asusctl</summary>
-  <icon type="remote">https://github.com/OpenGamingCollective/asusctl/blob/main/rog-control-center/data/rog-control-center.png</icon>
+  <name>ROG Control Center</name>
+  <summary>Manage ASUS laptop performance, power and lighting</summary>
+  <icon type="stock">rog-control-center</icon>
   
   <metadata_license>CC0-1.0</metadata_license>
   <project_license>MPL-2.0</project_license>
   
-  <url type="homepage">https://asus-linux.org</url>
-  <url type="bugtracker">https://github.com/OpenGamingCollective/asusctl/issues</url>
+  <url type="homepage">https://github.com/defvs/asusctl</url>
+  <url type="bugtracker">https://github.com/defvs/asusctl/issues</url>
   <url type="faq">https://asus-linux.org/faq/</url>
   <url type="help">https://asus-linux.org/manual/</url>
-  <url type="vcs-browser">https://github.com/OpenGamingCollective/asusctl</url>
+  <url type="vcs-browser">https://github.com/defvs/asusctl</url>
 
   <categories>
     <category>System</category>
@@ -22,19 +22,20 @@
 
   <screenshots>
     <screenshot type="default">
-      <caption>The Rog Control Center main window.</caption>
-      <image type="source" width="1800" height="1000">https://gitlab.com/asus-linux/website/-/raw/main/static/images/guides/gui-main.png</image>
+      <caption>Overview in the native GNOME interface (sample data).</caption>
+      <image type="source" width="1060" height="900">https://raw.githubusercontent.com/defvs/asusctl/gnome-ui/rog-control-center/gnome/screenshots/overview-light.png</image>
     </screenshot>
     <screenshot>
-      <caption>Fan curve selections.</caption>
-      <image type="source" width="1800" height="1000">https://gitlab.com/asus-linux/website/-/raw/main/static/images/guides/gui-fancurve.png</image>
+      <caption>Performance profiles and fan curves (sample data).</caption>
+      <image type="source" width="1060" height="900">https://raw.githubusercontent.com/defvs/asusctl/gnome-ui/rog-control-center/gnome/screenshots/performance-dark.png</image>
     </screenshot>
   </screenshots>
 
   <description>
-    <p>
-      Rog Control Center aims to provide most controls, a notification service, and ability to run in the background.
-    </p>
+    <p>ROG Control Center manages ASUS laptop performance profiles, fan curves,
+    charge limits, lighting and firmware settings through asusd. The native
+    GTK4 and libadwaita interface follows your desktop appearance and adapts
+    to narrow windows.</p>
   </description>
 
   <keywords>

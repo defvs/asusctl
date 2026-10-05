@@ -1,5 +1,7 @@
 VERSION := $(shell /usr/bin/grep -Pm1 'version = "(\d+.\d+.\d+.*)"' Cargo.toml | cut -d'"' -f2)
 
+PYTHON ?= python3
+
 INSTALL = install
 INSTALL_PROGRAM = ${INSTALL} -D -m 0755
 INSTALL_DATA = ${INSTALL} -D -m 0644
@@ -74,7 +76,7 @@ target/$(TARGET)/$(BIN_U): $(SRC)
 	$(MAKE) build
 
 target/$(TARGET)/$(BIN_ROG): $(SRC)
-	$(MAKE) build
+	$(MAKE) build-slint
 
 install-asusd: target/$(TARGET)/$(BIN_D)
 	$(INSTALL_PROGRAM) "./target/$(TARGET)/$(BIN_D)" "$(DESTDIR)$(bindir)/$(BIN_D)"
@@ -88,14 +90,30 @@ install-asusctl: target/$(TARGET)/$(BIN_C)
 install-asusd_user: target/$(TARGET)/$(BIN_U)
 	$(INSTALL_PROGRAM) "./target/$(TARGET)/$(BIN_U)" "$(DESTDIR)$(bindir)/$(BIN_U)"
 
-install-rog_gui: target/$(TARGET)/$(BIN_ROG)
-	$(INSTALL_PROGRAM) "./target/$(TARGET)/$(BIN_ROG)" "$(DESTDIR)$(bindir)/$(BIN_ROG)"
+check-rog_gui:
+	PYTHONPATH=rog-control-center/gnome $(PYTHON) -m unittest discover -s rog-control-center/gnome/tests -v
+	$(PYTHON) -m compileall -q rog-control-center/gnome
+
+run-rog_gui:
+	./rog-control-center/rog-control-center
+
+preview-rog_gui:
+	./rog-control-center/rog-control-center --demo
+
+install-rog_gui:
+	$(INSTALL_PROGRAM) "./rog-control-center/rog-control-center" "$(DESTDIR)$(bindir)/$(BIN_ROG)"
+	$(INSTALL_DATA) rog-control-center/gnome/rog_control_center/*.py -t "$(DESTDIR)$(datarootdir)/asusctl/gnome/rog_control_center/"
+	$(INSTALL_DATA) rog-control-center/gnome/icons/*.svg -t "$(DESTDIR)$(datarootdir)/asusctl/gnome/icons/"
+
+# The original Rust/Slint frontend remains available for upstream comparisons.
+install-rog_gui-slint: target/$(TARGET)/$(BIN_ROG)
+	$(INSTALL_PROGRAM) "./target/$(TARGET)/$(BIN_ROG)" "$(DESTDIR)$(bindir)/$(BIN_ROG)-slint"
 
 .PHONY: install-asusd install-asus-shutdown install-asusctl install-asusd_user install-rog_gui
 
 install-program: install-asusd install-asus-shutdown install-asusctl install-asusd_user install-rog_gui
 
-install-data-rog_gui: target/$(TARGET)/$(BIN_ROG)
+install-data-rog_gui:
 	$(INSTALL_DATA) "./rog-control-center/data/$(APP_ID).desktop" "$(DESTDIR)$(datarootdir)/applications/$(APP_ID).desktop"
 	$(INSTALL_DATA) "./rog-control-center/data/$(BIN_ROG).png" "$(DESTDIR)$(datarootdir)/icons/hicolor/512x512/apps/$(BIN_ROG).png"
 	$(INSTALL_DATA) "./rog-control-center/data/$(APP_ID).metainfo.xml" "$(DESTDIR)$(datarootdir)/metainfo/$(APP_ID).metainfo.xml"
@@ -140,6 +158,7 @@ install: install-program install-data
 
 uninstall:
 	rm -f "$(DESTDIR)$(bindir)/$(BIN_ROG)"
+	rm -f "$(DESTDIR)$(bindir)/$(BIN_ROG)-slint"
 	rm -f "$(DESTDIR)$(datarootdir)/applications/$(APP_ID).desktop"
 	rm -f "$(DESTDIR)$(datarootdir)/applications/$(BIN_ROG).desktop"
 	rm -f "$(DESTDIR)$(datarootdir)/icons/hicolor/512x512/apps/$(BIN_ROG).png"
@@ -196,14 +215,17 @@ ifeq ($(VENDORED),1)
 	@echo "version = $(VERSION)"
 	tar pxf vendor_asusctl_$(VERSION).tar.xz
 endif
-	cargo build $(ARGS)
+	cargo build $(ARGS) -p asusctl -p asusd -p asus-shutdown -p asusd-user
+	$(PYTHON) -m compileall -q rog-control-center/gnome
 ifeq ($(STRIP_BINARIES),1)
 	strip -s ./target/$(TARGET)/$(BIN_C)
 	strip -s ./target/$(TARGET)/$(BIN_D)
 	strip -s ./target/$(TARGET)/$(BIN_S)
 	strip -s ./target/$(TARGET)/$(BIN_U)
-	strip -s ./target/$(TARGET)/$(BIN_ROG)
 endif
 
+build-slint:
+	cargo build $(ARGS) -p rog-control-center
 
-.PHONY: all clean distclean install uninstall update build bindings
+
+.PHONY: all clean distclean install uninstall update build bindings build-slint check-rog_gui run-rog_gui preview-rog_gui install-rog_gui-slint
