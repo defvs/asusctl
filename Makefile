@@ -14,7 +14,7 @@ libdir = $(exec_prefix)/lib
 zshcpl = $(datarootdir)/zsh/site-functions
 
 BIN_ROG := rog-control-center
-APP_ID := org.opengamingcollective.rog-control-center
+APP_ID := org.opengamingcollective.ROGControlCenter
 BIN_C := asusctl
 BIN_D := asusd
 BIN_S := asus-shutdown
@@ -117,27 +117,6 @@ install-data-rog_gui:
 	$(INSTALL_DATA) "./rog-control-center/data/$(APP_ID).desktop" "$(DESTDIR)$(datarootdir)/applications/$(APP_ID).desktop"
 	$(INSTALL_DATA) "./rog-control-center/data/$(BIN_ROG).png" "$(DESTDIR)$(datarootdir)/icons/hicolor/512x512/apps/$(BIN_ROG).png"
 	$(INSTALL_DATA) "./rog-control-center/data/$(APP_ID).metainfo.xml" "$(DESTDIR)$(datarootdir)/metainfo/$(APP_ID).metainfo.xml"
-	cd rog-aura/data/layouts && find . -type f -name "*.ron" -exec $(INSTALL_DATA) "{}" "$(DESTDIR_REALPATH)$(datarootdir)/rog-gui/layouts/{}" \;
-	set -- $$(ls -t target/$(TARGET)/build/$(BIN_ROG)-*/out/translations/*/LC_MESSAGES/$(BIN_ROG).mo 2>/dev/null); \
-	if [ $$# -eq 0 ]; then \
-		echo "no compiled translations found, skipping locale install" >&2; \
-	else \
-		cd "$${1%/*/*/*}" && find . -type f -name "$(BIN_ROG).mo" -exec $(INSTALL_DATA) "{}" "$(DESTDIR_REALPATH)$(datarootdir)/locale/{}" \; ; \
-	fi
-
-	$(INSTALL_DATA) "./data/icons/asus_notif_yellow.png" "$(DESTDIR)$(datarootdir)/icons/hicolor/512x512/apps/asus_notif_yellow.png"
-	$(INSTALL_DATA) "./data/icons/asus_notif_green.png" "$(DESTDIR)$(datarootdir)/icons/hicolor/512x512/apps/asus_notif_green.png"
-	$(INSTALL_DATA) "./data/icons/asus_notif_blue.png" "$(DESTDIR)$(datarootdir)/icons/hicolor/512x512/apps/asus_notif_blue.png"
-	$(INSTALL_DATA) "./data/icons/asus_notif_red.png" "$(DESTDIR)$(datarootdir)/icons/hicolor/512x512/apps/asus_notif_red.png"
-	$(INSTALL_DATA) "./data/icons/asus_notif_orange.png" "$(DESTDIR)$(datarootdir)/icons/hicolor/512x512/apps/asus_notif_orange.png"
-	$(INSTALL_DATA) "./data/icons/asus_notif_white.png" "$(DESTDIR)$(datarootdir)/icons/hicolor/512x512/apps/asus_notif_white.png"
-
-	$(INSTALL_DATA) "./data/icons/scalable/gpu-compute.svg" "$(DESTDIR)$(datarootdir)/icons/hicolor/scalable/status/gpu-compute.svg"
-	$(INSTALL_DATA) "./data/icons/scalable/gpu-hybrid.svg" "$(DESTDIR)$(datarootdir)/icons/hicolor/scalable/status/gpu-hybrid.svg"
-	$(INSTALL_DATA) "./data/icons/scalable/gpu-integrated.svg" "$(DESTDIR)$(datarootdir)/icons/hicolor/scalable/status/gpu-integrated.svg"
-	$(INSTALL_DATA) "./data/icons/scalable/gpu-nvidia.svg" "$(DESTDIR)$(datarootdir)/icons/hicolor/scalable/status/gpu-nvidia.svg"
-	$(INSTALL_DATA) "./data/icons/scalable/gpu-vfio.svg" "$(DESTDIR)$(datarootdir)/icons/hicolor/scalable/status/gpu-vfio.svg"
-	$(INSTALL_DATA) "./data/icons/scalable/notification-reboot.svg" "$(DESTDIR)$(datarootdir)/icons/hicolor/scalable/status/notification-reboot.svg"
 
 install-data-asusd:
 	$(INSTALL_DATA) "./data/$(BIN_D).rules" "$(DESTDIR)$(libdir)/udev/rules.d/99-$(BIN_D).rules"

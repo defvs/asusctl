@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <component type="desktop-application">
-  <id>org.opengamingcollective.rog-control-center</id>
+  <id>org.opengamingcollective.ROGControlCenter</id>
   
   <name>ROG Control Center</name>
   <summary>Manage ASUS laptop performance, power and lighting</summary>
@@ -46,5 +46,5 @@
     <keyword>Armoury Crate</keyword>
   </keywords>
 
-  <launchable type="desktop-id">org.opengamingcollective.rog-control-center.desktop</launchable>
+  <launchable type="desktop-id">org.opengamingcollective.ROGControlCenter.desktop</launchable>
 </component>
