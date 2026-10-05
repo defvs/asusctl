@@ -73,6 +73,9 @@ def next_step():
             flush=True,
         )
         app.window.close()
+        # Older libadwaita releases can retain a closing dialog's transient
+        # window until its animation completes; do not let that hold the test.
+        app.quit()
         return False
     name, colour, width, height = steps.pop(0)
     w = app.window
@@ -199,5 +202,17 @@ steps.append(("overview", "light", 1060, 900))
 app.connect(
     "activate", lambda *_: wait_for(lambda: app.window and app.window.snapshot is not None, ready)
 )
+
+
+def watchdog():
+    errors.append("GTK smoke test exceeded 30 seconds")
+    print(errors[-1], file=sys.stderr, flush=True)
+    if app.window:
+        app.window.backend.close()
+    app.quit()
+    return False
+
+
+GLib.timeout_add_seconds(30, watchdog)
 app.run([])
 raise SystemExit(1 if errors else 0)
