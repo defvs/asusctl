@@ -80,6 +80,15 @@ starting from a new location can propose updating an obsolete command.
 
 ## Install only the new UI
 
+On Arch, use the [pacman package](../distro-packaging/arch/rog-control-center-gnome/README.md)
+to replace the original GUI while keeping the installed daemon:
+
+```sh
+cd distro-packaging/arch/rog-control-center-gnome
+makepkg -s
+sudo pacman -U ./rog-control-center-gnome-*.pkg.tar.zst
+```
+
 When the distro's daemon is already installed, the UI does not need a Rust
 build. To install separately under `/usr/local`:
 

@@ -1,0 +1,26 @@
+pkgbase = rog-control-center-gnome
+	pkgdesc = Native GNOME control panel for ASUS laptop performance, battery and lighting
+	pkgver = 6.5.0.gnome1
+	pkgrel = 1
+	url = https://github.com/defvs/asusctl
+	arch = any
+	license = MPL-2.0
+	checkdepends = glib2-devel
+	checkdepends = desktop-file-utils
+	checkdepends = appstream
+	depends = asusctl>=6.5.0
+	depends = python>=3.10
+	depends = python-gobject
+	depends = python-cairo
+	depends = gtk4>=4.12
+	depends = libadwaita>=1.5
+	depends = hicolor-icon-theme
+	optdepends = gnome-settings-daemon: persistent ROG-key shortcut on GNOME
+	optdepends = gnome-control-center: keyboard settings for shortcut conflicts
+	provides = rog-control-center=6.5.0
+	conflicts = rog-control-center
+	conflicts = rog-control-center-git
+	source = rog-control-center-gnome-6.5.0.gnome1.tar.gz::https://github.com/defvs/asusctl/archive/73646d6fb80df41ee77999e9700861fcc4801f3e.tar.gz
+	sha256sums = a2a80a1f0d9c5704adbc6da503f374941cd990f8688cb1572f018e02abd653f9
+
+pkgname = rog-control-center-gnome

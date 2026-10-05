@@ -1,0 +1,32 @@
+# Maintainer: defvs <https://github.com/defvs>
+pkgname=rog-control-center-gnome
+pkgver=6.5.0.gnome1
+pkgrel=1
+pkgdesc='Native GNOME control panel for ASUS laptop performance, battery and lighting'
+arch=('any')
+url='https://github.com/defvs/asusctl'
+license=('MPL-2.0')
+depends=('asusctl>=6.5.0' 'python>=3.10' 'python-gobject' 'python-cairo'
+         'gtk4>=4.12' 'libadwaita>=1.5' 'hicolor-icon-theme')
+checkdepends=('glib2-devel' 'desktop-file-utils' 'appstream')
+optdepends=('gnome-settings-daemon: persistent ROG-key shortcut on GNOME'
+            'gnome-control-center: keyboard settings for shortcut conflicts')
+provides=('rog-control-center=6.5.0')
+conflicts=('rog-control-center' 'rog-control-center-git')
+_commit=73646d6fb80df41ee77999e9700861fcc4801f3e
+source=("$pkgname-$pkgver.tar.gz::$url/archive/$_commit.tar.gz")
+sha256sums=('a2a80a1f0d9c5704adbc6da503f374941cd990f8688cb1572f018e02abd653f9')
+
+check() {
+    cd "asusctl-$_commit"
+    make check-rog_gui
+    desktop-file-validate rog-control-center/data/org.opengamingcollective.ROGControlCenter.desktop
+    appstreamcli validate --no-net rog-control-center/data/org.opengamingcollective.ROGControlCenter.metainfo.xml
+}
+
+package() {
+    cd "asusctl-$_commit"
+    make DESTDIR="$pkgdir" prefix=/usr install-rog_gui install-data-rog_gui
+    install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+    install -Dm644 rog-control-center/README.md "$pkgdir/usr/share/doc/$pkgname/README.md"
+}
