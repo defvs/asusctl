@@ -1,0 +1,17 @@
+<schemalist>
+  <schema id="org.gnome.settings-daemon.plugins.media-keys" path="/org/gnome/settings-daemon/plugins/media-keys/">
+    <key name="custom-keybindings" type="as"><default>[]</default></key>
+    <key name="www" type="as"><default>[]</default></key>
+  </schema>
+  <schema id="org.gnome.settings-daemon.plugins.media-keys.custom-keybinding">
+    <key name="name" type="s"><default>''</default></key>
+    <key name="command" type="s"><default>''</default></key>
+    <key name="binding" type="s"><default>''</default></key>
+  </schema>
+  <schema id="org.gnome.settings-daemon.global-shortcuts" path="/org/gnome/settings-daemon/global-shortcuts/">
+    <key name="applications" type="as"><default>[]</default></key>
+  </schema>
+  <schema id="org.gnome.settings-daemon.global-shortcuts.application">
+    <key name="shortcuts" type="a(sa{sv})"><default>[]</default></key>
+  </schema>
+</schemalist>

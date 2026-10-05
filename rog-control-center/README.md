@@ -63,6 +63,19 @@ The sidebar becomes back-button navigation on narrow windows. `Ctrl+1` through
 contains appearance choices, shortcuts and application information. Colours
 chosen manually apply for the current session; GNOME is the default.
 
+On GNOME, startup proposes setting up the **ROG key** if its launcher shortcut
+is missing or still opens another installation. Updating an existing shortcut
+keeps its key and name. For a new shortcut, press the physical ROG key in the
+dialog, then enable it. The launcher opens this app when it is closed, or brings
+its existing window forward, without a background UI service.
+
+The app checks custom, built-in and portal shortcuts for conflicts and leaves
+unrelated assignments untouched. Conflicts can be resolved in GNOME Keyboard
+Settings. **Not now** leaves settings unchanged; **Don't ask again** suppresses
+startup proposals. Manual setup remains in **Keyboard Shortcuts** in the app menu.
+The launch command points to the current checkout or installed launcher, so
+starting from a new location can propose updating an obsolete command.
+
 ![Performance in dark mode](gnome/screenshots/performance-dark.png)
 
 ## Install only the new UI
@@ -92,7 +105,8 @@ frontend as `rog-control-center-slint`.
 The GNOME frontend is a foreground settings application. The daemon retains
 profiles, power automation and hardware settings after the window closes. The
 old frontend's tray, background notification service, custom shell commands and
-global shortcut portal are not run by the GNOME frontend. Its existing RON
+global shortcut portal are not run by the GNOME frontend; its GNOME launcher
+shortcut works independently. Its existing RON
 configuration is left untouched. The new UI currently uses English; the
 retained Slint translation catalogues do not translate it.
 
@@ -107,6 +121,9 @@ PYTHONPATH=rog-control-center/gnome python3 rog-control-center/gnome/tests/smoke
 
 # Live service discovery and all five pages; no hardware writes.
 PYTHONPATH=rog-control-center/gnome python3 rog-control-center/gnome/tests/smoke_ui.py --live
+
+# Startup proposal, key capture and setup; private settings, no desktop changes.
+PYTHONPATH=rog-control-center/gnome python3 rog-control-center/gnome/tests/smoke_shortcuts.py
 
 # Optional screenshots of the preview in desktop and narrow light/dark layouts.
 PYTHONPATH=rog-control-center/gnome python3 rog-control-center/gnome/tests/smoke_ui.py --screenshots /tmp/rog-screenshots

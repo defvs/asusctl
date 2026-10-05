@@ -29,6 +29,7 @@ from .backend import (
     gpu_mode,
 )
 from .fans import FanEditor
+from .shortcuts import GnomeShortcut
 from .widgets import button, empty, group, info_row, label, metric, page
 
 APP_ID = "org.opengamingcollective.ROGControlCenter"
@@ -1250,13 +1251,16 @@ class Window(Adw.ApplicationWindow):
 
 
 class Application(Adw.Application):
-    def __init__(self, demo=False):
+    def __init__(self, demo=False, shortcut_manager=None):
         super().__init__(
             application_id=APP_ID + (".Preview" if demo else ""),
             flags=Gio.ApplicationFlags.DEFAULT_FLAGS,
         )
         self.demo = demo
         self.window = None
+        self.shortcut_manager = shortcut_manager
+        self.shortcut_offered = False
+        self.shortcut_dialog = None
         for name, callback in [
             ("quit", self.quit_window),
             ("about", self.about),
@@ -1282,6 +1286,101 @@ class Application(Adw.Application):
         if not self.window:
             self.window = Window(self, Backend(self.demo))
         self.window.present()
+        if not self.shortcut_offered:
+            self.shortcut_offered = True
+            GLib.idle_add(self.offer_rog_shortcut)
+
+    def offer_rog_shortcut(self, manual=False):
+        manager = self.shortcut_manager
+        if manager is None or (not manual and not manager.preferences.ask):
+            return GLib.SOURCE_REMOVE
+        plan = manager.inspect()
+        if plan.state == "unavailable" or (plan.state == "ready" and not manual):
+            return GLib.SOURCE_REMOVE
+        if self.shortcut_dialog:
+            self.shortcut_dialog.present(self.window)
+            return GLib.SOURCE_REMOVE
+        if plan.state == "ready":
+            self.window.toast.add_toast(Adw.Toast(title="The ROG key shortcut is already enabled"))
+            return GLib.SOURCE_REMOVE
+        updating = plan.state == "update" and plan.assigned
+        dialog = Adw.AlertDialog(
+            heading="Update your ROG key shortcut?"
+            if updating
+            else "Open the app with your ROG key?"
+        )
+        dialog.set_body(
+            "Your shortcut currently opens another installation. Update it to open this app, using the same key."
+            if updating
+            else "Press your ROG key to choose it, then enable the shortcut. It will open this app even when the window is closed."
+        )
+        dialog.add_response("cancel", "Not now")
+        dialog.add_response("never", "Don’t ask again")
+        dialog.add_response("settings", "Keyboard Settings")
+        dialog.add_response("enable", "Update shortcut" if updating else "Enable shortcut")
+        dialog.set_response_appearance("enable", Adw.ResponseAppearance.SUGGESTED)
+        dialog.set_default_response("cancel")
+        dialog.set_close_response("cancel")
+        details = label("", "dim-label", wrap=True)
+        dialog.set_extra_child(details)
+        selected = {"plan": plan, "captured": updating}
+
+        def describe():
+            current = selected["plan"]
+            valid, key, mods = Gtk.accelerator_parse(current.binding)
+            key_label = Gtk.accelerator_get_label(key, mods) if valid else current.binding
+            details.set_label(
+                f"This key is already used by: {current.conflict}. Choose another key or open Keyboard Settings."
+                if current.state == "conflict"
+                else f"ROG key: {key_label}"
+                if selected["captured"]
+                else "Waiting for your ROG key…"
+            )
+            dialog.set_response_enabled(
+                "enable", selected["captured"] and current.state in ("missing", "update")
+            )
+
+        def key_pressed(_controller, key, _code, mods):
+            if updating:
+                return False
+            # Capture the hardware launch key, never ordinary typing or Escape.
+            if key not in {Gdk.keyval_from_name(f"Launch{i}") for i in range(1, 5)}:
+                return False
+            binding = Gtk.accelerator_name(key, mods & Gtk.accelerator_get_default_mod_mask())
+            selected["plan"] = manager.inspect(binding)
+            selected["captured"] = True
+            describe()
+            return True
+
+        keys = Gtk.EventControllerKey()
+        keys.set_propagation_phase(Gtk.PropagationPhase.CAPTURE)
+        keys.connect("key-pressed", key_pressed)
+        dialog.add_controller(keys)
+
+        def response(_dialog, choice):
+            self.shortcut_dialog = None
+            try:
+                if choice == "never":
+                    manager.preferences.set_ask(False)
+                elif choice == "settings":
+                    Gio.Subprocess.new(
+                        ["gnome-control-center", "keyboard"], Gio.SubprocessFlags.NONE
+                    )
+                elif choice == "enable":
+                    result = manager.install(selected["plan"])
+                    if result.state != "ready":
+                        raise ValueError(
+                            "The shortcut was saved, but the key is assigned elsewhere. Review it in Keyboard Settings."
+                        )
+                    self.window.toast.add_toast(Adw.Toast(title="ROG key shortcut enabled"))
+            except (ValueError, OSError, GLib.Error) as error:
+                self.window.error("Could not set up the ROG key", str(error))
+
+        dialog.connect("response", response)
+        self.shortcut_dialog = dialog
+        describe()
+        dialog.present(self.window)
+        return GLib.SOURCE_REMOVE
 
     def quit_window(self, *_):
         if self.window:
@@ -1329,6 +1428,31 @@ class Application(Adw.Application):
         g = Adw.PreferencesGroup(title="Navigation")
         p.add(g)
         dialog.add(p)
+        if self.shortcut_manager:
+            rog = Adw.PreferencesGroup(
+                title="ROG key", description="Open this app even when its window is closed."
+            )
+            p.add(rog)
+            plan = self.shortcut_manager.inspect()
+            row = Adw.ActionRow(
+                use_markup=False,
+                title="Open ROG Control Center",
+                subtitle={
+                    "ready": "Enabled",
+                    "update": "Opens another installation",
+                    "missing": "Not assigned",
+                    "conflict": "Key is already in use",
+                    "unavailable": "GNOME shortcut setup is unavailable",
+                }.get(plan.state, "Not assigned"),
+            )
+            rog.add(row)
+            if plan.state in ("missing", "update", "conflict"):
+
+                def setup():
+                    dialog.close()
+                    self.offer_rog_shortcut(manual=True)
+
+                row.add_suffix(button("Set up", callback=setup))
         for name, keys in [
             ("Overview", "Ctrl+1"),
             ("Performance", "Ctrl+2"),
@@ -1348,5 +1472,7 @@ def main(argv=None):
         "--demo", action="store_true", help="Preview the UI without reading or writing hardware"
     )
     options = parser.parse_args(argv)
-    app = Application(demo=options.demo)
+    app = Application(
+        demo=options.demo, shortcut_manager=None if options.demo else GnomeShortcut(sys.argv[0])
+    )
     return app.run([sys.argv[0]])

@@ -39,6 +39,8 @@ jobs:
         run: make check-rog_gui PYTHON=/usr/bin/python3
       - name: Exercise GTK interface
         run: dbus-run-session -- xvfb-run -a /usr/bin/python3 rog-control-center/gnome/tests/smoke_ui.py
+      - name: Exercise shortcut proposal and setup
+        run: dbus-run-session -- xvfb-run -a /usr/bin/python3 rog-control-center/gnome/tests/smoke_shortcuts.py
       - name: Verify UI packaging
         run: |
           make install-rog_gui install-data-rog_gui DESTDIR=/tmp/rog-package prefix=/usr
